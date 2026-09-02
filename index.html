@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BROOKLYN LC | 革製品 原価計算ツール</title>
+<style>
+  :root {
+    --bg: #0f0d0a;
+    --bg-soft: #17140f;
+    --card: #1a1712;
+    --card-border: #2c2720;
+    --divider: #262119;
+    --text: #ece6da;
+    --text-muted: #9a917f;
+    --text-faint: #6b6455;
+    --gold: #c9a267;
+    --gold-bright: #ddb87e;
+    --gold-dim: #4a3d28;
+    --danger: #c0604f;
+    --positive: #8fb996;
+    --shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+
+    /* カスタマイズ可能な表示設定（JSが起動時に上書きします） */
+    --page-bg: #0f0d0a;
+    --header-font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+    --header-color: #ddb87e;
+    --header-size: 24px;
+    --title-font-family: "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif;
+    --title-color: #ece6da;
+    --title-size: 17px;
+    --body-font-family: "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif;
+    --body-color: #ece6da;
+    --body-size: 14px;
+    --amount-font-family: "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif;
+    --amount-color: #ddb87e;
+    --amount-size: 15px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    color: var(--body-color);
+    font-family: var(--body-font-family);
+    font-size: var(--body-size);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(201, 162, 103, 0.08), transparent 60%),
+      var(--page-bg);
+  }
+
+  input, select, button, textarea {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  #printArea { display: none; }
+
+  /* ---------- ヘッダー / ツールバー ---------- */
+
+  header.top-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(15, 13, 10, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--card-border);
+    padding: 20px clamp(16px, 4vw, 48px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .brand-name {
+    font-family: var(--header-font-family);
+    font-size: var(--header-size);
+    letter-spacing: 0.18em;
+    color: var(--header-color);
+    text-transform: uppercase;
+  }
+
+  .brand-sub {
+    font-size: calc(var(--header-size) * 0.5);
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary,
+  .btn-ghost {
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    padding: 11px 18px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--gold), #a9814f);
+    color: #1a1408;
+    border: none;
+    box-shadow: 0 4px 14px rgba(201, 162, 103, 0.25);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(201, 162, 103, 0.35);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--gold);
+    color: var(--gold-bright);
+    background: rgba(201, 162, 103, 0.08);
+  }
+
+  .btn-ghost.btn-danger-ghost:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: rgba(192, 96, 79, 0.1);
+  }
+
+  .export-wrap { position: relative; }
+
+  .export-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 6px;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 220px;
+    z-index: 30;
+  }
+
+  .export-menu.is-open { display: flex; }
+
+  .export-menu button {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13.5px;
+  }
+
+  .export-menu button:hover {
+    background: rgba(201, 162, 103, 0.12);
+    color: var(--gold-bright);
+  }
+
+  /* ---------- レイアウト ---------- */
+
+  main {
+    padding: clamp(20px, 4vw, 48px);
+  }
+
+  .products-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 24px;
+    align-items: start;
+  }
+
+  .product-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .product-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--gold), transparent 80%);
+  }
+
+  .product-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--divider);
+  }
+
+  .product-name {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--card-border);
+    font-family: var(--title-font-family);
+    color: var(--title-color);
+    font-size: calc(var(--title-size) + 2px);
+    font-weight: 600;
+    padding: 8px 2px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .product-name::placeholder { color: var(--text-faint); font-weight: 400; }
+  .product-name:focus { border-bottom-color: var(--gold); }
+
+  .btn-remove-product,
+  .btn-remove-part,
+  .btn-remove-material {
+    background: transparent;
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+
+  .btn-remove-product:hover,
+  .btn-remove-part:hover,
+  .btn-remove-material:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: rgba(192, 96, 79, 0.1);
+  }
+
+  .section-block {
+    padding: 16px 20px 4px;
+    border-bottom: 1px solid var(--divider);
+  }
+
+  .section-title {
+    font-family: var(--title-font-family);
+    color: var(--title-color);
+    font-size: var(--title-size);
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  .parts-list, .materials-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .part-row, .material-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--divider);
+  }
+
+  .part-row:last-child, .material-row:last-child { border-bottom: none; }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .field label {
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .field.name { flex: 2 1 150px; }
+  .field.price { flex: 1 1 110px; }
+  .field.area { flex: 1 1 100px; }
+  .field.subtotal { flex: 1 1 110px; align-items: flex-end; }
+
+  input.part-name, input.part-price, input.part-area,
+  input.material-name, input.material-amount,
+  input.selling-price {
+    background: var(--bg-soft);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  input.part-name::placeholder, input.part-price::placeholder, input.part-area::placeholder,
+  input.material-name::placeholder, input.material-amount::placeholder,
+  input.selling-price::placeholder {
+    color: var(--text-faint);
+  }
+
+  input.part-name:focus, input.part-price:focus, input.part-area:focus,
+  input.material-name:focus, input.material-amount:focus,
+  input.selling-price:focus {
+    border-color: var(--gold);
+    background: #1d1a13;
+  }
+
+  .amount-text {
+    font-family: var(--amount-font-family);
+    color: var(--amount-color);
+    font-size: var(--amount-size);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+
+  .part-subtotal {
+    padding: 8px 0;
+    text-align: right;
+    width: 100%;
+  }
+
+  .parts-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0 16px;
+  }
+
+  .btn-add-part, .btn-add-material {
+    background: transparent;
+    border: 1px dashed var(--gold-dim);
+    color: var(--gold);
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-add-part:hover:not(:disabled), .btn-add-material:hover {
+    border-color: var(--gold);
+    background: rgba(201, 162, 103, 0.08);
+  }
+
+  .btn-add-part:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-style: solid;
+  }
+
+  .parts-limit-msg {
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+
+  /* ---------- 集計・シミュレーション ---------- */
+
+  .cost-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--divider);
+    border-top: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  .summary-item {
+    background: var(--bg-soft);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .summary-item.highlight {
+    background: linear-gradient(135deg, rgba(201, 162, 103, 0.16), rgba(201, 162, 103, 0.04));
+  }
+
+  .summary-label {
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .summary-item .amount-text { font-size: calc(var(--amount-size) + 4px); }
+  .summary-item.highlight .amount-text { font-size: calc(var(--amount-size) + 8px); }
+
+  .sim-block { border-bottom: none; padding-bottom: 20px; }
+
+  .sim-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+
+  .sim-row .field { flex: 1 1 200px; }
+
+  .sim-readout {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 140px;
+  }
+
+  .sim-readout span {
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .sim-results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+
+  .sim-item {
+    background: var(--bg-soft);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .sim-item span {
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .sim-item.highlight {
+    background: linear-gradient(135deg, rgba(201, 162, 103, 0.16), rgba(201, 162, 103, 0.04));
+    border-color: var(--gold-dim);
+  }
+
+  .amount-text.positive { color: var(--positive); }
+  .amount-text.negative { color: var(--danger); }
+
+  footer.page-footer {
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 12px;
+    padding: 10px 16px 40px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- 設定モーダル ---------- */
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 5, 3, 0.7);
+    z-index: 100;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px;
+    overflow-y: auto;
+  }
+
+  .modal-overlay.is-open { display: flex; }
+
+  .modal-panel {
+    background: #1a1712;
+    border: 1px solid #2c2720;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.55);
+    width: 100%;
+    max-width: 640px;
+    color: #ece6da;
+    font-family: "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif;
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid #2c2720;
+  }
+
+  .modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    letter-spacing: 0.05em;
+    color: #ddb87e;
+  }
+
+  .btn-icon {
+    background: transparent;
+    border: 1px solid #2c2720;
+    color: #9a917f;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+  }
+
+  .btn-icon:hover { border-color: #c9a267; color: #ddb87e; }
+
+  .modal-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    max-height: 65vh;
+    overflow-y: auto;
+  }
+
+  .settings-group h4 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    color: #c9a267;
+    text-transform: uppercase;
+    border-bottom: 1px dashed #2c2720;
+    padding-bottom: 8px;
+  }
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+  }
+
+  .settings-row label {
+    font-size: 13px;
+    color: #cfc7b8;
+    flex-shrink: 0;
+  }
+
+  .settings-row select {
+    background: #17140f;
+    border: 1px solid #2c2720;
+    color: #ece6da;
+    border-radius: 6px;
+    padding: 7px 10px;
+  }
+
+  .settings-row input[type="color"] {
+    width: 46px;
+    height: 32px;
+    padding: 2px;
+    background: #17140f;
+    border: 1px solid #2c2720;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .settings-row input[type="range"] {
+    width: 140px;
+    accent-color: #c9a267;
+  }
+
+  .settings-row input[type="text"] {
+    background: #17140f;
+    border: 1px solid #2c2720;
+    color: #ece6da;
+    border-radius: 6px;
+    padding: 7px 10px;
+    width: 220px;
+  }
+
+  .size-value {
+    color: #9a917f;
+    font-size: 11px;
+  }
+
+  .settings-note {
+    font-size: 12.5px;
+    color: #9a917f;
+    line-height: 1.6;
+    margin: 0 0 10px;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 24px 22px;
+    border-top: 1px solid #2c2720;
+  }
+
+  /* ---------- 印刷（PDF書き出し）専用ビュー ---------- */
+
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #ffffff !important; }
+    #printArea {
+      display: block !important;
+      background: #ffffff;
+      color: #14110c;
+      padding: 0;
+    }
+    #printArea h1 { font-size: 20px; margin-bottom: 4px; }
+    #printArea .print-date { font-size: 11px; color: #555; margin-bottom: 20px; }
+    #printArea .print-product { margin-bottom: 26px; page-break-inside: avoid; }
+    #printArea .print-product h2 {
+      font-size: 15px; border-bottom: 2px solid #14110c; padding-bottom: 4px; margin-bottom: 8px;
+    }
+    #printArea table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 11.5px; }
+    #printArea th, #printArea td { border: 1px solid #999; padding: 5px 7px; text-align: left; }
+    #printArea th { background: #eee; }
+    #printArea .print-summary td:first-child { color: #444; }
+    #printArea .print-summary strong { font-size: 12.5px; }
+  }
+
+  /* ---------- レスポンシブ ---------- */
+
+  @media (max-width: 480px) {
+    .product-header { padding: 16px 16px 14px; }
+    .section-block { padding: 14px 16px 4px; }
+    .parts-actions { padding: 8px 0 16px; }
+    .summary-item { padding: 12px 14px; }
+    .field.subtotal { align-items: flex-start; }
+    .part-subtotal { text-align: left; }
+    .modal-body { max-height: 70vh; }
+    .settings-row input[type="text"] { width: 150px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top-bar no-print">
+  <div class="brand">
+    <div class="brand-name">BROOKLYN LC</div>
+    <div class="brand-sub">革製品 原価計算ツール</div>
+  </div>
+  <div class="toolbar">
+    <button type="button" class="btn-ghost" id="settingsBtn">⚙ 設定</button>
+    <div class="export-wrap">
+      <button type="button" class="btn-ghost" id="exportBtn">⭳ データを書き出し</button>
+      <div class="export-menu" id="exportMenu">
+        <button type="button" data-export="csv">CSV形式でダウンロード</button>
+        <button type="button" data-export="pdf">PDF形式で書き出す（印刷）</button>
+      </div>
+    </div>
+    <button type="button" class="btn-ghost btn-danger-ghost" id="resetAllBtn">↺ すべてのデータを初期化</button>
+    <button type="button" class="btn-primary" id="addProductBtn">＋ 商品を追加する</button>
+  </div>
+</header>
+
+<main class="no-print">
+  <div class="products-container" id="productsContainer"></div>
+</main>
+
+<footer class="page-footer no-print">入力内容はブラウザに自動保存されます（税込金額は消費税10%換算）</footer>
+
+<div class="modal-overlay no-print" id="settingsOverlay">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3>設定</h3>
+      <button type="button" class="btn-icon" id="settingsCloseBtn" aria-label="閉じる">×</button>
+    </div>
+    <div class="modal-body" id="settingsBody">
+
+      <section class="settings-group">
+        <h4>ヘッダー / タイトル</h4>
+        <div class="settings-row">
+          <label>フォント</label>
+          <select data-setting="fonts.header.family">
+            <option value="gothic">ゴシック</option>
+            <option value="mincho">明朝</option>
+            <option value="serif">Serif</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label>文字色</label>
+          <input type="color" data-setting="fonts.header.color">
+        </div>
+        <div class="settings-row">
+          <label>文字サイズ <span class="size-value" data-size-label="fonts.header.size"></span></label>
+          <input type="range" min="14" max="40" data-setting="fonts.header.size">
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h4>商品名 / セクション見出し</h4>
+        <div class="settings-row">
+          <label>フォント</label>
+          <select data-setting="fonts.title.family">
+            <option value="gothic">ゴシック</option>
+            <option value="mincho">明朝</option>
+            <option value="serif">Serif</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label>文字色</label>
+          <input type="color" data-setting="fonts.title.color">
+        </div>
+        <div class="settings-row">
+          <label>文字サイズ <span class="size-value" data-size-label="fonts.title.size"></span></label>
+          <input type="range" min="12" max="28" data-setting="fonts.title.size">
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h4>本文 / 入力項目</h4>
+        <div class="settings-row">
+          <label>フォント</label>
+          <select data-setting="fonts.body.family">
+            <option value="gothic">ゴシック</option>
+            <option value="mincho">明朝</option>
+            <option value="serif">Serif</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label>文字色</label>
+          <input type="color" data-setting="fonts.body.color">
+        </div>
+        <div class="settings-row">
+          <label>文字サイズ <span class="size-value" data-size-label="fonts.body.size"></span></label>
+          <input type="range" min="11" max="20" data-setting="fonts.body.size">
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h4>金額 / 数値表示</h4>
+        <div class="settings-row">
+          <label>フォント</label>
+          <select data-setting="fonts.amount.family">
+            <option value="gothic">ゴシック</option>
+            <option value="mincho">明朝</option>
+            <option value="serif">Serif</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label>文字色</label>
+          <input type="color" data-setting="fonts.amount.color">
+        </div>
+        <div class="settings-row">
+          <label>文字サイズ <span class="size-value" data-size-label="fonts.amount.size"></span></label>
+          <input type="range" min="12" max="26" data-setting="fonts.amount.size">
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h4>ダウンロード・保存先</h4>
+        <p class="settings-note">書き出したファイルは、お使いのブラウザの既定の保存先（通常は「ダウンロード」フォルダ）に保存されます。保存先を変更したい場合は、ブラウザ本体の設定をご確認ください。</p>
+        <div class="settings-row">
+          <label>ファイル名プレフィックス</label>
+          <input type="text" data-setting="filenamePrefix" placeholder="BrooklynLC_原価計算">
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h4>背景カスタマイズ</h4>
+        <div class="settings-row">
+          <label>画面全体の背景色</label>
+          <input type="color" data-setting="pageBackground">
+        </div>
+      </section>
+
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-ghost" id="settingsResetBtn">表示設定をリセット</button>
+      <button type="button" class="btn-primary" id="settingsDoneBtn">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  const STORAGE_KEY = 'brooklynLC_costCalculator_v1';
+  const MAX_PARTS = 20;
+  const INITIAL_PARTS = 5;
+  const TAX_RATE = 1.10;
+
+  const FONT_MAP = {
+    gothic: '"Hiragino Sans","Yu Gothic","Segoe UI",-apple-system,BlinkMacSystemFont,sans-serif',
+    mincho: '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif',
+    serif: 'Georgia,"Times New Roman",serif'
+  };
+
+  const DEFAULT_SETTINGS = {
+    filenamePrefix: 'BrooklynLC_原価計算',
+    pageBackground: '#0f0d0a',
+    fonts: {
+      header: { family: 'mincho', color: '#ddb87e', size: 24 },
+      title: { family: 'gothic', color: '#ece6da', size: 17 },
+      body: { family: 'gothic', color: '#ece6da', size: 14 },
+      amount: { family: 'gothic', color: '#ddb87e', size: 15 }
+    }
+  };
+
+  const DEFAULT_MATERIAL_NAMES = ['金具', 'ファスナー', '裏地', '梱包箱', 'その他'];
+
+  let uidCounter = 0;
+  function uid() { return ++uidCounter; }
+
+  function createDefaultParts() {
+    return Array.from({ length: INITIAL_PARTS }, () => ({ id: uid(), name: '', price: '', area: '' }));
+  }
+
+  function createDefaultMaterials() {
+    return DEFAULT_MATERIAL_NAMES.map((name) => ({ id: uid(), name, amount: '' }));
+  }
+
+  function createDefaultProduct() {
+    return {
+      id: uid(),
+      name: '',
+      parts: createDefaultParts(),
+      materials: createDefaultMaterials(),
+      sellingPrice: ''
+    };
+  }
+
+  function createDefaultState() {
+    return {
+      products: [createDefaultProduct()],
+      settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS))
+    };
+  }
+
+  function normalizeSettings(saved) {
+    const s = saved || {};
+    const f = s.fonts || {};
+    return {
+      filenamePrefix: typeof s.filenamePrefix === 'string' ? s.filenamePrefix : DEFAULT_SETTINGS.filenamePrefix,
+      pageBackground: typeof s.pageBackground === 'string' ? s.pageBackground : DEFAULT_SETTINGS.pageBackground,
+      fonts: {
+        header: Object.assign({}, DEFAULT_SETTINGS.fonts.header, f.header || {}),
+        title: Object.assign({}, DEFAULT_SETTINGS.fonts.title, f.title || {}),
+        body: Object.assign({}, DEFAULT_SETTINGS.fonts.body, f.body || {}),
+        amount: Object.assign({}, DEFAULT_SETTINGS.fonts.amount, f.amount || {})
+      }
+    };
+  }
+
+  function normalizeState(parsed) {
+    if (!parsed || !Array.isArray(parsed.products) || parsed.products.length === 0) {
+      return createDefaultState();
+    }
+    const products = parsed.products.map((p) => ({
+      id: typeof p.id === 'number' ? p.id : uid(),
+      name: typeof p.name === 'string' ? p.name : '',
+      parts: Array.isArray(p.parts) && p.parts.length
+        ? p.parts.map((pt) => ({
+            id: typeof pt.id === 'number' ? pt.id : uid(),
+            name: typeof pt.name === 'string' ? pt.name : '',
+            price: pt.price === undefined || pt.price === null ? '' : pt.price,
+            area: pt.area === undefined || pt.area === null ? '' : pt.area
+          }))
+        : createDefaultParts(),
+      materials: Array.isArray(p.materials)
+        ? p.materials.map((m) => ({
+            id: typeof m.id === 'number' ? m.id : uid(),
+            name: typeof m.name === 'string' ? m.name : '',
+            amount: m.amount === undefined || m.amount === null ? '' : m.amount
+          }))
+        : createDefaultMaterials(),
+      sellingPrice: p.sellingPrice === undefined || p.sellingPrice === null ? '' : p.sellingPrice
+    }));
+    return {
+      products,
+      settings: normalizeSettings(parsed.settings)
+    };
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return createDefaultState();
+      const parsed = JSON.parse(raw);
+      const normalized = normalizeState(parsed);
+      let maxId = 0;
+      normalized.products.forEach((p) => {
+        maxId = Math.max(maxId, p.id);
+        p.parts.forEach((pt) => { maxId = Math.max(maxId, pt.id); });
+        p.materials.forEach((m) => { maxId = Math.max(maxId, m.id); });
+      });
+      uidCounter = maxId;
+      return normalized;
+    } catch (e) {
+      console.warn('保存データの読み込みに失敗しました。初期状態で開始します。', e);
+      return createDefaultState();
+    }
+  }
+
+  let state = loadState();
+
+  let saveTimer = null;
+  function saveState() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.warn('データの自動保存に失敗しました。', e);
+      }
+    }, 250);
+  }
+
+  // ---------- ユーティリティ ----------
+
+  function formatYen(n) {
+    const v = Math.round(n || 0);
+    const sign = v < 0 ? '-' : '';
+    return sign + '¥' + Math.abs(v).toLocaleString('ja-JP');
+  }
+
+  function formatYenSigned(n) {
+    const v = Math.round(n || 0);
+    return (v > 0 ? '+' : '') + formatYen(v);
+  }
+
+  function formatArea(n) {
+    return (n || 0).toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ds';
+  }
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function getByPath(obj, path) {
+    return path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj);
+  }
+
+  function setByPath(obj, path, value) {
+    const keys = path.split('.');
+    let target = obj;
+    for (let i = 0; i < keys.length - 1; i++) target = target[keys[i]];
+    target[keys[keys.length - 1]] = value;
+  }
+
+  function computeProductTotals(product) {
+    let totalArea = 0;
+    let leatherCost = 0;
+    product.parts.forEach((p) => {
+      const price = parseFloat(p.price) || 0;
+      const area = parseFloat(p.area) || 0;
+      totalArea += area;
+      leatherCost += price * area;
+    });
+    let materialsCost = 0;
+    product.materials.forEach((m) => { materialsCost += parseFloat(m.amount) || 0; });
+
+    const costExTax = leatherCost + materialsCost;
+    const costInTax = costExTax * TAX_RATE;
+    const sellingExTax = parseFloat(product.sellingPrice) || 0;
+    const sellingInTax = sellingExTax * TAX_RATE;
+    const profitExTax = sellingExTax - costExTax;
+    const profitInTax = sellingInTax - costInTax;
+    const profitRate = sellingExTax > 0 ? (profitExTax / sellingExTax) * 100 : 0;
+
+    return { totalArea, leatherCost, materialsCost, costExTax, costInTax, sellingExTax, sellingInTax, profitExTax, profitInTax, profitRate };
+  }
+
+  // ---------- DOM参照 ----------
+
+  const productsContainer = document.getElementById('productsContainer');
+  const addProductBtn = document.getElementById('addProductBtn');
+  const resetAllBtn = document.getElementById('resetAllBtn');
+  const exportBtn = document.getElementById('exportBtn');
+  const exportMenu = document.getElementById('exportMenu');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsOverlay = document.getElementById('settingsOverlay');
+  const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+  const settingsDoneBtn = document.getElementById('settingsDoneBtn');
+  const settingsResetBtn = document.getElementById('settingsResetBtn');
+  const settingsBody = document.getElementById('settingsBody');
+  const printArea = document.getElementById('printArea');
+
+  // ---------- テンプレート生成 ----------
+
+  function partRowHtml(part) {
+    return `
+      <div class="part-row" data-part-id="${part.id}">
+        <div class="field name">
+          <label>パーツ名</label>
+          <input type="text" class="part-name" placeholder="例：外側パネル" value="${escapeHtml(part.name)}">
+        </div>
+        <div class="field price">
+          <label>仕入れ値（円/1ds）</label>
+          <input type="number" class="part-price" placeholder="0" min="0" step="1" inputmode="decimal" value="${escapeHtml(part.price)}">
+        </div>
+        <div class="field area">
+          <label>必要面積（ds）</label>
+          <input type="number" class="part-area" placeholder="0" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(part.area)}">
+        </div>
+        <div class="field subtotal">
+          <label>小計</label>
+          <div class="part-subtotal amount-text">¥0</div>
+        </div>
+        <button type="button" class="btn-remove-part" aria-label="このパーツを削除">×</button>
+      </div>`;
+  }
+
+  function materialRowHtml(material) {
+    return `
+      <div class="material-row" data-material-id="${material.id}">
+        <div class="field name">
+          <label>項目名</label>
+          <input type="text" class="material-name" placeholder="例：金具" value="${escapeHtml(material.name)}">
+        </div>
+        <div class="field price">
+          <label>金額（円）</label>
+          <input type="number" class="material-amount" placeholder="0" min="0" step="1" inputmode="decimal" value="${escapeHtml(material.amount)}">
+        </div>
+        <button type="button" class="btn-remove-material" aria-label="この項目を削除">×</button>
+      </div>`;
+  }
+
+  function productCardHtml(product) {
+    const partsHtml = product.parts.map(partRowHtml).join('');
+    const materialsHtml = product.materials.map(materialRowHtml).join('');
+    return `
+      <div class="product-card" data-product-id="${product.id}">
+        <div class="product-header">
+          <input type="text" class="product-name" placeholder="大元の商品名（例：nu-m ウォレット）" value="${escapeHtml(product.name)}">
+          <button type="button" class="btn-remove-product" aria-label="この商品を削除">×</button>
+        </div>
+
+        <div class="section-block">
+          <div class="section-title">革パーツ（ds計算）</div>
+          <div class="parts-list">${partsHtml}</div>
+          <div class="parts-actions">
+            <button type="button" class="btn-add-part">＋ パーツを追加</button>
+            <span class="parts-limit-msg"></span>
+          </div>
+        </div>
+
+        <div class="section-block">
+          <div class="section-title">副資材・固定費</div>
+          <div class="materials-list">${materialsHtml}</div>
+          <div class="parts-actions">
+            <button type="button" class="btn-add-material">＋ 副資材を追加</button>
+          </div>
+        </div>
+
+        <div class="cost-summary">
+          <div class="summary-item">
+            <span class="summary-label">合計使用面積</span>
+            <strong class="total-area amount-text">0.00 ds</strong>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">革原価合計</span>
+            <strong class="total-leather-cost amount-text">¥0</strong>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">副資材合計</span>
+            <strong class="total-materials-cost amount-text">¥0</strong>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">総原価（税抜）</span>
+            <strong class="total-cost-extax amount-text">¥0</strong>
+          </div>
+          <div class="summary-item highlight">
+            <span class="summary-label">総原価（税込）</span>
+            <strong class="total-cost-intax amount-text">¥0</strong>
+          </div>
+        </div>
+
+        <div class="section-block sim-block">
+          <div class="section-title">販売シミュレーション</div>
+          <div class="sim-row">
+            <div class="field">
+              <label>販売予定価格（円・税抜）</label>
+              <input type="number" class="selling-price" min="0" step="1" placeholder="0" value="${escapeHtml(product.sellingPrice)}">
+            </div>
+            <div class="sim-readout">
+              <span>販売価格（税込）</span>
+              <strong class="selling-price-intax amount-text">¥0</strong>
+            </div>
+          </div>
+          <div class="sim-results">
+            <div class="sim-item">
+              <span>予想利益（税抜）</span>
+              <strong class="profit-extax amount-text">¥0</strong>
+            </div>
+            <div class="sim-item">
+              <span>予想利益（税込）</span>
+              <strong class="profit-intax amount-text">¥0</strong>
+            </div>
+            <div class="sim-item highlight">
+              <span>利益率</span>
+              <strong class="profit-rate amount-text">0.0%</strong>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ---------- 描画・再計算 ----------
+
+  function findProduct(id) {
+    return state.products.find((p) => p.id === id);
+  }
+
+  function getProductId(el) {
+    const card = el.closest('.product-card');
+    return card ? Number(card.dataset.productId) : null;
+  }
+
+  function updateAddPartButton(card, product) {
+    const btn = card.querySelector('.btn-add-part');
+    const msg = card.querySelector('.parts-limit-msg');
+    if (product.parts.length >= MAX_PARTS) {
+      btn.disabled = true;
+      msg.textContent = `パーツは最大${MAX_PARTS}個までです`;
+    } else {
+      btn.disabled = false;
+      msg.textContent = '';
+    }
+  }
+
+  function updateProductComputed(card, product) {
+    const t = computeProductTotals(product);
+
+    product.parts.forEach((p) => {
+      const row = card.querySelector(`.part-row[data-part-id="${p.id}"] .part-subtotal`);
+      if (row) row.textContent = formatYen((parseFloat(p.price) || 0) * (parseFloat(p.area) || 0));
+    });
+
+    card.querySelector('.total-area').textContent = formatArea(t.totalArea);
+    card.querySelector('.total-leather-cost').textContent = formatYen(t.leatherCost);
+    card.querySelector('.total-materials-cost').textContent = formatYen(t.materialsCost);
+    card.querySelector('.total-cost-extax').textContent = formatYen(t.costExTax);
+    card.querySelector('.total-cost-intax').textContent = formatYen(t.costInTax);
+    card.querySelector('.selling-price-intax').textContent = formatYen(t.sellingInTax);
+
+    const profitExEl = card.querySelector('.profit-extax');
+    const profitInEl = card.querySelector('.profit-intax');
+    profitExEl.textContent = formatYenSigned(t.profitExTax);
+    profitInEl.textContent = formatYenSigned(t.profitInTax);
+    profitExEl.classList.toggle('positive', t.profitExTax > 0);
+    profitExEl.classList.toggle('negative', t.profitExTax < 0);
+    profitInEl.classList.toggle('positive', t.profitInTax > 0);
+    profitInEl.classList.toggle('negative', t.profitInTax < 0);
+
+    const rateEl = card.querySelector('.profit-rate');
+    rateEl.textContent = t.profitRate.toFixed(1) + '%';
+    rateEl.classList.toggle('positive', t.profitRate > 0);
+    rateEl.classList.toggle('negative', t.profitRate < 0);
+
+    updateAddPartButton(card, product);
+  }
+
+  function render() {
+    productsContainer.innerHTML = state.products.map(productCardHtml).join('');
+    state.products.forEach((product) => {
+      const card = productsContainer.querySelector(`.product-card[data-product-id="${product.id}"]`);
+      updateProductComputed(card, product);
+    });
+  }
+
+  // ---------- イベント：入力（数値の即時反映） ----------
+
+  productsContainer.addEventListener('input', (e) => {
+    const productId = getProductId(e.target);
+    if (!productId) return;
+    const product = findProduct(productId);
+    if (!product) return;
+    const card = e.target.closest('.product-card');
+
+    if (e.target.matches('.product-name')) {
+      product.name = e.target.value;
+      saveState();
+      return;
+    }
+
+    if (e.target.matches('.part-name, .part-price, .part-area')) {
+      const partRow = e.target.closest('.part-row');
+      const part = product.parts.find((p) => p.id === Number(partRow.dataset.partId));
+      if (!part) return;
+      if (e.target.matches('.part-name')) part.name = e.target.value;
+      if (e.target.matches('.part-price')) part.price = e.target.value;
+      if (e.target.matches('.part-area')) part.area = e.target.value;
+      updateProductComputed(card, product);
+      saveState();
+      return;
+    }
+
+    if (e.target.matches('.material-name, .material-amount')) {
+      const matRow = e.target.closest('.material-row');
+      const material = product.materials.find((m) => m.id === Number(matRow.dataset.materialId));
+      if (!material) return;
+      if (e.target.matches('.material-name')) material.name = e.target.value;
+      if (e.target.matches('.material-amount')) material.amount = e.target.value;
+      updateProductComputed(card, product);
+      saveState();
+      return;
+    }
+
+    if (e.target.matches('.selling-price')) {
+      product.sellingPrice = e.target.value;
+      updateProductComputed(card, product);
+      saveState();
+    }
+  });
+
+  // ---------- イベント：クリック（構造変更） ----------
+
+  productsContainer.addEventListener('click', (e) => {
+    const productId = getProductId(e.target);
+    if (!productId) return;
+    const product = findProduct(productId);
+    if (!product) return;
+
+    if (e.target.matches('.btn-add-part')) {
+      if (product.parts.length < MAX_PARTS) {
+        product.parts.push({ id: uid(), name: '', price: '', area: '' });
+        render();
+        saveState();
+      }
+      return;
+    }
+
+    if (e.target.matches('.btn-remove-part')) {
+      const partRow = e.target.closest('.part-row');
+      const partId = Number(partRow.dataset.partId);
+      product.parts = product.parts.filter((p) => p.id !== partId);
+      render();
+      saveState();
+      return;
+    }
+
+    if (e.target.matches('.btn-add-material')) {
+      product.materials.push({ id: uid(), name: '', amount: '' });
+      render();
+      saveState();
+      return;
+    }
+
+    if (e.target.matches('.btn-remove-material')) {
+      const matRow = e.target.closest('.material-row');
+      const matId = Number(matRow.dataset.materialId);
+      product.materials = product.materials.filter((m) => m.id !== matId);
+      render();
+      saveState();
+      return;
+    }
+
+    if (e.target.matches('.btn-remove-product')) {
+      if (state.products.length <= 1) {
+        alert('少なくとも1つの商品が必要です。');
+        return;
+      }
+      if (confirm('この商品を削除しますか？入力内容は失われます。')) {
+        state.products = state.products.filter((p) => p.id !== productId);
+        render();
+        saveState();
+      }
+    }
+  });
+
+  addProductBtn.addEventListener('click', () => {
+    const product = createDefaultProduct();
+    state.products.push(product);
+    render();
+    saveState();
+    const card = productsContainer.querySelector(`.product-card[data-product-id="${product.id}"]`);
+    if (card) card.querySelector('.product-name').focus();
+  });
+
+  resetAllBtn.addEventListener('click', () => {
+    if (confirm('すべてのデータ（商品・パーツ・副資材・設定）を初期化します。よろしいですか？この操作は取り消せません。')) {
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* noop */ }
+      uidCounter = 0;
+      state = createDefaultState();
+      render();
+      applySettingsToCSS(state.settings);
+      populateSettingsForm(state.settings);
+      saveState();
+    }
+  });
+
+  // ---------- 書き出し（CSV / PDF） ----------
+
+  exportBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    exportMenu.classList.toggle('is-open');
+  });
+
+  document.addEventListener('click', () => exportMenu.classList.remove('is-open'));
+  exportMenu.addEventListener('click', (e) => e.stopPropagation());
+
+  exportMenu.addEventListener('click', (e) => {
+    const type = e.target.getAttribute('data-export');
+    if (!type) return;
+    exportMenu.classList.remove('is-open');
+    if (type === 'csv') exportCSV();
+    if (type === 'pdf') exportPDF();
+  });
+
+  function csvField(v) {
+    const s = String(v == null ? '' : v);
+    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function todayStamp() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  }
+
+  function exportCSV() {
+    const rows = [];
+    state.products.forEach((product, idx) => {
+      const t = computeProductTotals(product);
+      rows.push(['商品名', product.name || '(未入力)']);
+      rows.push([]);
+      rows.push(['パーツ名', '仕入れ値(円/ds)', '必要面積(ds)', '小計(円)']);
+      product.parts.forEach((p) => {
+        const price = parseFloat(p.price) || 0;
+        const area = parseFloat(p.area) || 0;
+        rows.push([p.name || '', price, area, Math.round(price * area)]);
+      });
+      rows.push([]);
+      rows.push(['副資材・固定費', '金額(円)']);
+      product.materials.forEach((m) => {
+        rows.push([m.name || '', Math.round(parseFloat(m.amount) || 0)]);
+      });
+      rows.push([]);
+      rows.push(['合計使用面積(ds)', t.totalArea.toFixed(2)]);
+      rows.push(['革原価合計(円)', Math.round(t.leatherCost)]);
+      rows.push(['副資材合計(円)', Math.round(t.materialsCost)]);
+      rows.push(['総原価 税抜(円)', Math.round(t.costExTax)]);
+      rows.push(['総原価 税込(円)', Math.round(t.costInTax)]);
+      rows.push(['販売予定価格 税抜(円)', Math.round(t.sellingExTax)]);
+      rows.push(['販売予定価格 税込(円)', Math.round(t.sellingInTax)]);
+      rows.push(['予想利益 税抜(円)', Math.round(t.profitExTax)]);
+      rows.push(['予想利益 税込(円)', Math.round(t.profitInTax)]);
+      rows.push(['利益率(%)', t.profitRate.toFixed(1)]);
+      if (idx < state.products.length - 1) { rows.push([]); rows.push([]); }
+    });
+
+    const csvText = rows.map((r) => r.map(csvField).join(',')).join('\r\n');
+    const blob = new Blob(['﻿' + csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.settings.filenamePrefix || 'BrooklynLC_原価計算'}_${todayStamp()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function buildPrintHtml() {
+    const d = new Date();
+    const dateStr = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+    let html = `<h1>BROOKLYN LC 原価計算書</h1><div class="print-date">出力日：${dateStr}</div>`;
+
+    state.products.forEach((product) => {
+      const t = computeProductTotals(product);
+      html += `<div class="print-product">`;
+      html += `<h2>${escapeHtml(product.name || '(商品名未入力)')}</h2>`;
+
+      html += `<table><thead><tr><th>パーツ名</th><th>仕入れ値(円/ds)</th><th>必要面積(ds)</th><th>小計(円)</th></tr></thead><tbody>`;
+      product.parts.forEach((p) => {
+        const price = parseFloat(p.price) || 0;
+        const area = parseFloat(p.area) || 0;
+        html += `<tr><td>${escapeHtml(p.name)}</td><td>${formatYen(price)}</td><td>${area.toFixed(2)} ds</td><td>${formatYen(price * area)}</td></tr>`;
+      });
+      html += `</tbody></table>`;
+
+      html += `<table><thead><tr><th>副資材・固定費</th><th>金額(円)</th></tr></thead><tbody>`;
+      product.materials.forEach((m) => {
+        html += `<tr><td>${escapeHtml(m.name)}</td><td>${formatYen(parseFloat(m.amount) || 0)}</td></tr>`;
+      });
+      html += `</tbody></table>`;
+
+      html += `<table class="print-summary"><tbody>`;
+      html += `<tr><td>合計使用面積</td><td><strong>${t.totalArea.toFixed(2)} ds</strong></td></tr>`;
+      html += `<tr><td>革原価合計</td><td><strong>${formatYen(t.leatherCost)}</strong></td></tr>`;
+      html += `<tr><td>副資材合計</td><td><strong>${formatYen(t.materialsCost)}</strong></td></tr>`;
+      html += `<tr><td>総原価（税抜）</td><td><strong>${formatYen(t.costExTax)}</strong></td></tr>`;
+      html += `<tr><td>総原価（税込）</td><td><strong>${formatYen(t.costInTax)}</strong></td></tr>`;
+      html += `<tr><td>販売予定価格（税抜）</td><td><strong>${formatYen(t.sellingExTax)}</strong></td></tr>`;
+      html += `<tr><td>販売予定価格（税込）</td><td><strong>${formatYen(t.sellingInTax)}</strong></td></tr>`;
+      html += `<tr><td>予想利益（税抜）</td><td><strong>${formatYenSigned(t.profitExTax)}</strong></td></tr>`;
+      html += `<tr><td>予想利益（税込）</td><td><strong>${formatYenSigned(t.profitInTax)}</strong></td></tr>`;
+      html += `<tr><td>利益率</td><td><strong>${t.profitRate.toFixed(1)}%</strong></td></tr>`;
+      html += `</tbody></table>`;
+
+      html += `</div>`;
+    });
+
+    return html;
+  }
+
+  function exportPDF() {
+    printArea.innerHTML = buildPrintHtml();
+    window.print();
+  }
+
+  window.addEventListener('beforeprint', () => {
+    if (!printArea.innerHTML) printArea.innerHTML = buildPrintHtml();
+  });
+  window.addEventListener('afterprint', () => {
+    printArea.innerHTML = '';
+  });
+
+  // ---------- 設定モーダル ----------
+
+  function applySettingsToCSS(settings) {
+    const root = document.documentElement.style;
+    root.setProperty('--page-bg', settings.pageBackground);
+
+    root.setProperty('--header-font-family', FONT_MAP[settings.fonts.header.family] || FONT_MAP.mincho);
+    root.setProperty('--header-color', settings.fonts.header.color);
+    root.setProperty('--header-size', settings.fonts.header.size + 'px');
+
+    root.setProperty('--title-font-family', FONT_MAP[settings.fonts.title.family] || FONT_MAP.gothic);
+    root.setProperty('--title-color', settings.fonts.title.color);
+    root.setProperty('--title-size', settings.fonts.title.size + 'px');
+
+    root.setProperty('--body-font-family', FONT_MAP[settings.fonts.body.family] || FONT_MAP.gothic);
+    root.setProperty('--body-color', settings.fonts.body.color);
+    root.setProperty('--body-size', settings.fonts.body.size + 'px');
+
+    root.setProperty('--amount-font-family', FONT_MAP[settings.fonts.amount.family] || FONT_MAP.gothic);
+    root.setProperty('--amount-color', settings.fonts.amount.color);
+    root.setProperty('--amount-size', settings.fonts.amount.size + 'px');
+  }
+
+  function populateSettingsForm(settings) {
+    settingsBody.querySelectorAll('[data-setting]').forEach((el) => {
+      const path = el.getAttribute('data-setting');
+      const val = getByPath(settings, path);
+      if (el.type === 'range') {
+        el.value = val;
+        const label = settingsBody.querySelector(`[data-size-label="${path}"]`);
+        if (label) label.textContent = val + 'px';
+      } else {
+        el.value = val;
+      }
+    });
+  }
+
+  settingsBody.addEventListener('input', (e) => {
+    const path = e.target.getAttribute('data-setting');
+    if (!path) return;
+    let value = e.target.value;
+    if (e.target.type === 'range') {
+      value = Number(value);
+      const label = settingsBody.querySelector(`[data-size-label="${path}"]`);
+      if (label) label.textContent = value + 'px';
+    }
+    setByPath(state.settings, path, value);
+    applySettingsToCSS(state.settings);
+    saveState();
+  });
+
+  function openSettings() {
+    populateSettingsForm(state.settings);
+    settingsOverlay.classList.add('is-open');
+  }
+
+  function closeSettings() {
+    settingsOverlay.classList.remove('is-open');
+  }
+
+  settingsBtn.addEventListener('click', openSettings);
+  settingsCloseBtn.addEventListener('click', closeSettings);
+  settingsDoneBtn.addEventListener('click', closeSettings);
+  settingsOverlay.addEventListener('click', (e) => {
+    if (e.target === settingsOverlay) closeSettings();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && settingsOverlay.classList.contains('is-open')) closeSettings();
+  });
+
+  settingsResetBtn.addEventListener('click', () => {
+    if (confirm('表示設定（フォント・色・背景）だけを初期状態に戻します。よろしいですか？')) {
+      state.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+      applySettingsToCSS(state.settings);
+      populateSettingsForm(state.settings);
+      saveState();
+    }
+  });
+
+  // ---------- 初期化 ----------
+
+  applySettingsToCSS(state.settings);
+  render();
+})();
+</script>
+
+</body>
+</html>
